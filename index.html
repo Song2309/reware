@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Tính Tổng Thưởng/Phạt từ File DOCX</title>
+    <script src="https://unpkg.com/mammoth/mammoth.browser.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 2rem;
+      }
+      h2 {
+        color: #333;
+      }
+      .result {
+        margin-top: 1rem;
+        font-weight: bold;
+        font-size: 1.1rem;
+      }
+      .reward {
+        color: green;
+      }
+      .penalty {
+        color: red;
+      }
+      .nettotal {
+        color: #0077cc;
+        margin-top: 0.5rem;
+      }
+      .log {
+        margin-top: 1rem;
+        background-color: #f0f0f0;
+        padding: 1rem;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #ccc;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>📄 Tính Tổng Thưởng/Phạt từ File DOCX</h2>
+
+    <input type="file" id="upload" accept=".docx" />
+    <div class="result">
+      <p class="reward" id="reward">🎁 Tổng tiền thưởng: 0 VNĐ</p>
+      <p class="penalty" id="penalty">💸 Tổng tiền phạt (hợp lệ): 0 VNĐ</p>
+      <p class="nettotal" id="net">🧾 Tổng tiền thực nhận: 0 VNĐ</p>
+    </div>
+    <div class="log" id="logText"></div>
+
+    <script>
+      const uploadInput = document.getElementById("upload");
+      const rewardEl = document.getElementById("reward");
+      const penaltyEl = document.getElementById("penalty");
+      const netEl = document.getElementById("net");
+      const logText = document.getElementById("logText");
+
+      uploadInput.addEventListener("change", async function () {
+        const file = this.files[0];
+        if (!file) return;
+
+        const arrayBuffer = await file.arrayBuffer();
+
+        mammoth.extractRawText({ arrayBuffer }).then(function (res) {
+          const rawText = res.value;
+          const { totalReward, totalPenalty } = parseBonus(rawText);
+          const netTotal = totalReward - totalPenalty;
+
+          rewardEl.textContent =
+            "🎁 Tổng tiền thưởng: " + formatMoney(totalReward) + " VNĐ";
+          penaltyEl.textContent =
+            "💸 Tổng tiền phạt (hợp lệ): " + formatMoney(totalPenalty) + " VNĐ";
+          netEl.textContent =
+            "🧾 Tổng tiền thực nhận: " + formatMoney(netTotal) + " VNĐ";
+          logText.textContent = rawText;
+        });
+      });
+
+      function parseBonus(text) {
+        text = text.replace(/：/g, ":"); // Fix Unicode colon if needed
+
+        const pattern =
+          /Số tiền:\s*(-?\d+),\s*Thời gian:[^,]*,\s*Lý do:\s*(.*?)(?=Số tiền:|$)/gis;
+
+        let totalReward = 0;
+        let totalPenalty = 0;
+        let match;
+
+        while ((match = pattern.exec(text)) !== null) {
+          const amount = parseInt(match[1]);
+          const reason = match[2].toLowerCase();
+
+          if (amount > 0) {
+            totalReward += amount;
+          } else if (
+            amount < 0 &&
+            !(reason.includes("trễ dl") || reason.includes("trễ deadline"))
+          ) {
+            totalPenalty += Math.abs(amount);
+          }
+        }
+
+        return { totalReward, totalPenalty };
+      }
+
+      function formatMoney(number) {
+        return number.toLocaleString("vi-VN");
+      }
+    </script>
+  </body>
+</html>
